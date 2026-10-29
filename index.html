@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brainrot Loot WebApp</title>
+    <script src="https://telegram.org"></script>
+    <style>
+        body {
+            background-color: #121214;
+            color: #ffffff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 15px;
+            text-align: center;
+            user-select: none;
+        }
+        .header {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ff9f43;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255,159,67,0.3);
+        }
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            background: #1e1e24;
+            border-radius: 10px;
+            padding: 5px;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .tab.active {
+            background: #ff9f43;
+            color: #121214;
+        }
+        .page { display: none; }
+        .page.active { display: block; }
+        
+        /* КЕЙСИ */
+        .case-card {
+            background: #1e1e24;
+            border: 2px solid #2e2e38;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .case-card:hover { border-color: #ff9f43; }
+        .case-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .case-price { color: #ff9f43; font-weight: bold; }
+        
+        /* РУЛЕТКА КЕЙСА */
+        .roulette-container {
+            position: relative;
+            width: 100%;
+            height: 100px;
+            background: #1e1e24;
+            border: 2px solid #ff9f43;
+            overflow: hidden;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+        }
+        .marker {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 4px;
+            height: 100%;
+            background: #ff4757;
+            z-index: 10;
+            transform: translateX(-50%);
+            box-shadow: 0 0 10px #ff4757;
+        }
+        .roulette-tape {
+            display: flex;
+            position: absolute;
+            left: 0;
+            top: 10px;
+            height: 80px;
+            transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1);
+        }
+        .roulette-item {
+            width: 90px;
+            height: 80px;
+            background: #2e2e38;
+            margin: 0 5px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 11px;
+            font-weight: bold;
+            box-sizing: border-box;
+            border-bottom: 4px solid #ff9f43;
+        }
+
+        /* АПГРЕЙДЕР */
+        .wheel-container {
+            position: relative;
+            width: 220px;
+            height: 220px;
+            margin: 30px auto;
+        }
+        .wheel-svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        .wheel-bg { fill: none; stroke: #2e2e38; stroke-width: 20; }
+        .wheel-zone { fill: none; stroke: #10ac84; stroke-width: 20; stroke-dasharray: 0 628; transition: 0.5s; }
+        .arrow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 90px;
+            background: #ff4757;
+            transform-origin: bottom center;
+            transform: translate(-50%, -100%) rotate(0deg);
+            transition: transform 3s cubic-bezier(0.1, 0.8, 0.1, 1);
+            box-shadow: 0 0 8px #ff4757;
+        }
+        .arrow::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -6px;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 12px solid #ff4757;
+        }
+        .btn-action {
+            background: #ff9f43;
+            color: #121214;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 15px;
+            width: 100%;
+        }
+        .mult-btn {
+            background: #1e1e24;
+            border: 2px solid #2e2e38;
+            color: white;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .mult-btn.active { border-color: #10ac84; background: rgba(16,172,132,0.1); }
+        .result-text { font-size: 18px; font-weight: bold; margin-top: 15px; min-height: 25px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">BRAINROT LOOT</div>
+
+    <div class="nav-tabs">
+        <div class="tab active" onclick="switchTab('cases', this)">📦 Кейси</div>
+        <div class="tab" onclick="switchTab('upgrade', this)">🔮 Апгрейд</div>
+    </div>
+
+    <!-- СТОРІНКА КЕЙСІВ -->
+    <div id="page-cases" class="page active">
+        <div class="case-card" onclick="startCase('dragon')">
+            <div class="case-title">🐉 Dragon Case</div>
+            <div class="case-price">500 B</div>
+        </div>
+        <div class="case-card" onclick="startCase('tako')">
+            <div class="case-title">🌮 Tako Case</div>
+            <div class="case-price">209 B</div>
+        </div>
+        <div class="case-card" onclick="startCase('mobile')">
+            <div class="case-title">🟩 Mobile Case</div>
+            <div class="case-price">19 B</div>
+        </div>
+        <div class="case-card" onclick="startCase('lucky')">
+            <div class="case-title">❓ Lucky Case</div>
+            <div class="case-price">259 B</div>
+        </div>
+        <div class="case-card" onclick="startCase('cerberus')">
+            <div class="case-title">🐕 Cerberus Case</div>
+            <div class="case-price">137 B</div>
+        </div>
+
+        <div class="roulette-container" id="roulette-block">
+            <div class="marker"></div>
+            <div class="roulette-tape" id="tape"></div>
+        </div>
+        <div class="result-text" id="case-result"></div>
+    </div>
+
+    <!-- СТОРІНКА АПГРЕЙДЕРУ -->
+    <div id="page-upgrade" class="page">
+        <div>Обери множник для прокачки луту:</div>
+        <div style="margin: 10px 0;">
+            <button class="mult-btn active" id="btn-x2" onclick="setMultiplier(2, 50)">x2 (Шанс 50%)</button>
+            <button class="mult-btn" id="btn-x5" onclick="setMultiplier(5, 20)">x5 (Шанс 20%)</button>
+            <button class="mult-btn" id="btn-x10" onclick="setMultiplier(10, 10)">x10 (Шанс 10%)</button>
+        </div>
+
+        <div class="wheel-container">
+            <svg class="wheel-svg" viewBox="0 0 220 220">
+                <circle class="wheel-bg" cx="110" cy="110" r="100"></circle>
+                <circle class="wheel-zone" id="wheel-sector" cx="110" cy="110" r="100"></circle>
+            </svg>
+            <div class="arrow" id="arrow"></div>
+        </div>
+
+        <button class="btn-action" onclick="startUpgrade()">🔮 ЗАПУСТИТИ АПГРЕЙД</button>
+        <div class="result-text" id="upgrade-result"></div>
+    </div>
+
+    <script>
+        // Ініціалізація Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        let currentMultiplier = 2;
+        let currentChance = 50;
+
+        // Перемикання вкладок
+        function switchTab(tabName, el) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            el.classList.add('active');
+            document.getElementById('page-' + tabName).classList.add('active');
+        }
+
+        // Логіка оновлення сектора колеса (628 — це повна довжина кола)
+        function updateWheelSector(percent) {
+            const sector = document.getElementById('wheel-sector');
+            const length = (percent / 100) * 628;
+            sector.style.strokeDasharray = `${length} 628`;
+        }
+        updateWheelSector(50); // Старт з 50%
+
+        function setMultiplier(mult, percent) {
+            currentMultiplier = mult;
+            currentChance = percent;
+            document.querySelectorAll('.mult-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-x' + mult).classList.add('active');
+            updateWheelSector(percent);
+        }
+
+        // АНІМАЦІЯ КРУТІННЯ КЕЙСА
+        function startCase(caseType) {
+            const tape = document.getElementById('tape');
+            const block = document.getElementById('roulette-block');
+            const resultText = document.getElementById('case-result');
+            
+            block.style.display = 'block';
+            resultText.innerText = 'Кейс відкривається...';
+            tape.style.transition = 'none';
+            tape.style.transform = 'translateX(0px)';
+            
+            // Наповнюємо стрічку картками
+            tape.innerHTML = '';
+            for(let i=0; i<30; i++) {
+                const item = document.createElement('div');
+                item.className = 'roulette-item';
+                item.innerText = i === 25 ? '👑 TOP LOOT' : '📦 Item ' + i;
+                tape.appendChild(item);
+            }
+            
+            setTimeout(() => {
+                tape.style.transition = 'transform 4s cubic-bezier(0.1, 0.8, 0.1, 1)';
+                // Зсуваємо стрічку на 25-й елемент
+                tape.style.transform = 'translateX(-2200px)';
+            }, 50);
+setTimeout(() => {
+resultText.innerText = '🎉 Вітаємо! Тобі випав топовий брейнрот предмет!';
+// Відправляємо сигнал нашому боту на Python!
+tg.sendData(JSON.stringify({action: "open_case", type: caseType}));
+}, 4100);
+}
+// АНІМАЦІЯ КОЛЕСА АПГРЕЙДЕРУ
+function startUpgrade() {
+const arrow = document.getElementById('arrow');
+const resultText = document.getElementById('upgrade-result');
+resultText.innerText = 'Стрілка крутиться... 🌀';
+// Генеруємо випадковий кут (кілька повних обертів + випадкове місце)
+const randomRotation = 1800 + Math.floor(Math.random() * 360);
+arrow.style.transition = 'transform 3s cubic-bezier(0.1, 0.8, 0.1, 1)';
+arrow.style.transform = translate(-50%, -100%) rotate(${randomRotation}deg);
+setTimeout(() => {
+const finalAngle = randomRotation % 360;
+const targetMaxAngle = (currentChance / 100) * 360;
+// Перевірка потрапляння в зафарбовану зону
+if (finalAngle <= targetMaxAngle) {
+resultText.style.color = '#10ac84';
+resultText.innerText = 🎉 УСПІХ! Лут помножено на x${currentMultiplier}!;
+} else {
+resultText.style.color = '#ff4757';
+resultText.innerText = '💥 НАВДАЧА! Предмет згорів!';
+}
+tg.sendData(JSON.stringify({action: "upgrade", mult: currentMultiplier}));
+}, 3100);
+}
