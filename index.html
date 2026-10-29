@@ -96,80 +96,76 @@
         <div class="result-text" id="upgrade-result"></div>
     </div>
 
-    <div class="modal" id="modal-my-items"><div class="modal-content"><div class="modal-header"><div>🎒 Твій інвентар:</div><div class="close-modal" onclick="closeModal('my-items')">×</div></div><div id="modal-my-list"></div></div></div>
-    <div class="modal" id="modal-all-items"><div class="modal-content"><div class="modal-header"><div>🎯 Оберіть ціль:</div><div class="close-modal" onclick="closeModal('all-items')">×</div></div><div id="modal-all-list"></div></div></div>
-
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-
-        // 🌟 Офіційне зчитування монет з бота!
-        const urlParams = new URLSearchParams(window.location.search);
-        let balance = parseInt(urlParams.get('balance')) || 1000;
-        let rawInv = urlParams.get('inventory');
-        let inventory = [];
-        try { if(rawInv) inventory = JSON.parse(decodeURIComponent(rawInv)); } catch(e){}
-
-        document.getElementById('user-balance').innerText = balance;
-
-        const GAME_LOOT = {
-            "dragon": [{name: "Elephant Frigo [⚙️ DEFAULT]", value: 8850, chance: 0.5},{name: "Los Dragons [⚙️ DEFAULT]", value: 4638, chance: 2.0},{name: "Kraken [⚙️ DEFAULT]", value: 2190, chance: 4.5},{name: "Tirilikalika [⚙️ DEFAULT]", value: 1012, chance: 13.0},{name: "Capitano Americano [⚙️ DEFAULT]", value: 506, chance: 30.0},{name: "Rubiko and Kubiko [⚙️ DEFAULT]", value: 372, chance: 50.0}],
-            "tako": [{name: "Griffin [⚙️ DEFAULT]", value: 4217, chance: 0.5},{name: "La Casa Boo [⚙️ DEFAULT]", value: 551, chance: 4.5},{name: "Spooky and Pumpky [⚙️ DEFAULT]", value: 151, chance: 15.0},{name: "Cerberus [⚙️ DEFAULT]", value: 135, chance: 20.0},{name: "Chillin Chili [⚙️ DEFAULT]", value: 122, chance: 25.0},{name: "Frama [⚙️ DEFAULT]", value: 118, chance: 35.0}],
-            "mobile": [{name: "Venuspino [⚙️ DEFAULT]", value: 500, chance: 5.0},{name: "La Food Combinasion [⚙️ DEFAULT]", value: 140, chance: 15.0},{name: "Ketchuru and Musturu [⚙️ DEFAULT]", value: 20, chance: 25.0},{name: "Ketupat Kepat [⚙️ DEFAULT]", value: 22, chance: 20.0},{name: "67 [⚙️ DEFAULT]", value: 12, chance: 35.0}],
-            "lucky": [{name: "Orchidox [⚙️ DEFAULT]", value: 15127, chance: 0.01},{name: "Kraken [⚙️ DEFAULT]", value: 2030, chance: 0.5},{name: "Hydra Bunny [⚙️ DEFAULT]", value: 1722, chance: 1.0},{name: "Reinito Sleighito [⚙️ DEFAULT]", value: 716, chance: 3.0},{name: "La Casa Boo [⚙️ DEFAULT]", value: 551, chance: 5.0},{name: "Rosey and Teddy [⚙️ DEFAULT]", value: 525, chance: 6.0},{name: "Celestial Pegasus [⚙️ DEFAULT]", value: 418, chance: 7.0},{name: "Los Sekolahs [⚙️ DEFAULT]", value: 325, chance: 9.0},{name: "Cooki and Milki [⚙️ DEFAULT]", value: 293, chance: 12.0},{name: "Fortunu and Cashuru [⚙️ DEFAULT]", value: 230, chance: 15.0},{name: "La Food Combinasion [⚙️ DEFAULT]", value: 103, chance: 20.0}],
-            "cerberus": [{name: "Hydra Bunny [⚙️ DEFAULT]", value: 3265, chance: 0.5},{name: "Cerberus [⚙️ DEFAULT]", value: 467, chance: 4.0},{name: "Burguro And Fryuro [⚙️ DEFAULT]", value: 196, chance: 8.0},{name: "Capitano Moby [⚙️ DEFAULT]", value: 127, chance: 12.0},{name: "Cash or Card [DEFAULT]", value: 116, chance: 14.0},{name: "Garama and Madundung [DEFAULT]", value: 106, chance: 15.0},{name: "Los Primos [DEFAULT]", value: 101, chance: 16.0},{name: "La Secret Combinasion [DEFAULT]", value: 90, chance: 18.0},{name: "Popcuru and Fizzuru [DEFAULT]", value: 87, chance: 19.0},{name: "Eviledon [DEFAULT]", value: 71, chance: 19.9},{name: "Ketchuru and Musturu [DEFAULT]", value: 54, chance: 20.0}]
-        };
-        const CASE_PRICES = { "dragon": 500, "tako": 209, "mobile": 19, "lucky": 259, "cerberus": 137 };
-
-        function switchTab(name) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById('tab-' + name).classList.add('active');
-            document.getElementById('page-' + name).classList.add('active');
-            if(name === 'inventory') renderInventory();
-        }
-
-        function openCaseScreen(type) {
-            currentCase = type;
-            document.getElementById('page-cases').classList.remove('active');
-            document.getElementById('page-single-case').classList.add('active');
-            document.getElementById('single-case-title').innerText = type.toUpperCase() + " CASE";
-            document.getElementById('roulette-block').style.display = 'none';
-            document.getElementById('case-result').innerText = '';
-            document.getElementById('btn-open-case').style.display = 'block';
-            const list = document.getElementById('loot-list-content'); list.innerHTML = '';
-            GAME_LOOT[type].forEach(item => {
-                const div = document.createElement('div'); div.className = 'loot-item-text';
-                div.innerHTML = `<span>• ${item.name}</span> <span style="color:#ff9f43;font-weight:bold;">${item.value} B</span>`;
-                list.appendChild(div);
-            });
-        }
-
-        function backToMenu() {
-            document.getElementById('page-single-case').classList.remove('active');
-            document.getElementById('page-cases').classList.add('active');
-        }
-
-        function spinRoulette() {
-            const price = CASE_PRICES[currentCase];
-            if(balance < price) { alert("Недостатньо B монет!"); return; }
-            balance -= price; document.getElementById('user-balance').innerText = balance;
-            const tape = document.getElementById('tape'); const block = document.getElementById('roulette-block');
-            const resultText = document.getElementById('case-result'); const btn = document.getElementById('btn-open-case');
-            btn.style.display = 'none'; block.style.display = 'block'; resultText.innerText = 'Рулетка крутиться... 🎰';
-            tape.style.transition = 'none'; tape.style.transform = 'translateX(0px)'; tape.innerHTML = '';
-            const pool = GAME_LOOT[currentCase];
-            for(let i=0; i<40; i++) {
-                const item = document.createElement('div'); item.className = 'roulette-item';
-                item.innerText = pool[i % pool.length].name; tape.appendChild(item);
-            }
-            let rand = pool[Math.floor(Math.random() * pool.length)];
-            tape.children[28].innerText = "👑 " + rand.name;
-            tape.children[28].style.borderColor = '#10ac84';
-setTimeout(() => { tape.style.transition = 'transform 4s cubic-bezier(0.1, 0.8, 0.1, 1)'; tape.style.transform = 'translateX(-3410px)'; }, 50);
+🎒 Твій інвентар:×
+🎯 Оберіть ціль:×
+const tg = window.Telegram.WebApp;
+tg.expand();
+const urlParams = new URLSearchParams(window.location.search);
+let balance = parseInt(urlParams.get('balance')) || 1000;
+let rawInv = urlParams.get('inventory');
+let inventory = [];
+try { if(rawInv) inventory = JSON.parse(decodeURIComponent(rawInv)); } catch(e){}
+document.getElementById('user-balance').innerText = balance;
+const GAME_LOOT = {
+"dragon": [{name: "Elephant Frigo [⚙️ DEFAULT]", value: 8850, chance: 0.5},{name: "Los Dragons [⚙️ DEFAULT]", value: 4638, chance: 2.0},{name: "Kraken [⚙️ DEFAULT]", value: 2190, chance: 4.5},{name: "Tirilikalika [⚙️ DEFAULT]", value: 1012, chance: 13.0},{name: "Capitano Americano [⚙️ DEFAULT]", value: 506, chance: 30.0},{name: "Rubiko and Kubiko [⚙️ DEFAULT]", value: 372, chance: 50.0}],
+"tako": [{name: "Griffin [⚙️ DEFAULT]", value: 4217, chance: 0.5},{name: "La Casa Boo [⚙️ DEFAULT]", value: 551, chance: 4.5},{name: "Spooky and Pumpky [⚙️ DEFAULT]", value: 151, chance: 15.0},{name: "Cerberus [⚙️ DEFAULT]", value: 135, chance: 20.0},{name: "Chillin Chili [⚙️ DEFAULT]", value: 122, chance: 25.0},{name: "Frama [⚙️ DEFAULT]", value: 118, chance: 35.0}],
+"mobile": [{name: "Venuspino [⚙️ DEFAULT]", value: 500, chance: 5.0},{name: "La Food Combinasion [⚙️ DEFAULT]", value: 140, chance: 15.0},{name: "Ketchuru and Musturu [⚙️ DEFAULT]", value: 20, chance: 25.0},{name: "Ketupat Kepat [⚙️ DEFAULT]", value: 22, chance: 20.0},{name: "67 [⚙️ DEFAULT]", value: 12, chance: 35.0}],
+"lucky": [{name: "Orchidox [⚙️ DEFAULT]", value: 15127, chance: 0.01},{name: "Kraken [⚙️ DEFAULT]", value: 2030, chance: 0.5},{name: "Hydra Bunny [⚙️ DEFAULT]", value: 1722, chance: 1.0},{name: "Reinito Sleighito [⚙️ DEFAULT]", value: 716, chance: 3.0},{name: "La Casa Boo [⚙️ DEFAULT]", value: 551, chance: 5.0},{name: "Rosey and Teddy [⚙️ DEFAULT]", value: 525, chance: 6.0},{name: "Celestial Pegasus [⚙️ DEFAULT]", value: 418, chance: 7.0},{name: "Los Sekolahs [⚙️ DEFAULT]", value: 325, chance: 9.0},{name: "Cooki and Milki [⚙️ DEFAULT]", value: 293, chance: 12.0},{name: "Fortunu and Cashuru [⚙️ DEFAULT]", value: 230, chance: 15.0},{name: "La Food Combinasion [⚙️ DEFAULT]", value: 103, chance: 20.0}],
+"cerberus": [{name: "Hydra Bunny [⚙️ DEFAULT]", value: 3265, chance: 0.5},{name: "Cerberus [⚙️ DEFAULT]", value: 467, chance: 4.0},{name: "Burguro And Fryuro [⚙️ DEFAULT]", value: 196, chance: 8.0},{name: "Capitano Moby [⚙️ DEFAULT]", value: 127, chance: 12.0},{name: "Cash or Card [DEFAULT]", value: 116, chance: 14.0},{name: "Garama and Madundung [DEFAULT]", value: 106, chance: 15.0},{name: "Los Primos [DEFAULT]", value: 101, chance: 16.0},{name: "La Secret Combinasion [DEFAULT]", value: 90, chance: 18.0},{name: "Popcuru and Fizzuru [DEFAULT]", value: 87, chance: 19.0},{name: "Eviledon [DEFAULT]", value: 71, chance: 19.9},{name: "Ketchuru and Musturu [DEFAULT]", value: 54, chance: 20.0}]
+};
+const CASE_PRICES = { "dragon": 500, "tako": 209, "mobile": 19, "lucky": 259, "cerberus": 137 };
+function switchTab(name) {
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+document.getElementById('tab-' + name).classList.add('active');
+document.getElementById('page-' + name).classList.add('active');
+if(name === 'inventory') renderInventory();
+}
+function openCaseScreen(type) {
+currentCase = type;
+document.getElementById('page-cases').classList.remove('active');
+document.getElementById('page-single-case').classList.add('active');
+document.getElementById('single-case-title').innerText = type.toUpperCase() + " CASE";
+document.getElementById('roulette-block').style.display = 'none';
+document.getElementById('case-result').innerText = '';
+document.getElementById('btn-open-case').style.display = 'block';
+const list = document.getElementById('loot-list-content'); list.innerHTML = '';
+GAME_LOOT[type].forEach(item => {
+const div = document.createElement('div'); div.className = 'loot-item-text';
+div.innerHTML = <span>• ${item.name}</span> <span style="color:#ff9f43;font-weight:bold;">${item.value} B</span>;
+list.appendChild(div);
+});
+}
+function backToMenu() {
+document.getElementById('page-single-case').classList.remove('active');
+document.getElementById('page-cases').classList.add('active');
+}
+function spinRoulette() {
+const price = CASE_PRICES[currentCase];
+if(balance < price) { alert("Недостатньо B монет!"); return; }
+balance -= price; document.getElementById('user-balance').innerText = balance;
+const tape = document.getElementById('tape'); const block = document.getElementById('roulette-block');
+const resultText = document.getElementById('case-result'); const btn = document.getElementById('btn-open-case');
+btn.style.display = 'none'; block.style.display = 'block'; resultText.innerText = 'Рулетка крутиться... 🎰';
+tape.style.transition = 'none'; tape.style.transform = 'translateX(0px)'; tape.innerHTML = '';
+const pool = GAME_LOOT[currentCase];
+for(let i=0; i<40; i++) {
+const item = document.createElement('div'); item.className = 'roulette-item';
+item.innerText = pool[i % pool.length].name; tape.appendChild(item);
+}
+let rand = pool[Math.floor(Math.random() * pool.length)];
+// Виправляємо звернення до елементів стрічки
+setTimeout(() => {
+if(tape.children && tape.children[28]) {
+tape.children[28].innerText = "👑 " + rand.name;
+tape.children[28].style.borderColor = '#10ac84';
+}
+tape.style.transition = 'transform 4s cubic-bezier(0.1, 0.8, 0.1, 1)';
+tape.style.transform = 'translateX(-3300px)';
+}, 50);
 setTimeout(() => {
 resultText.innerHTML = 🎉 Випав: <span style="color:#ff9f43;">${rand.name}</span>;
-inventory.push({ id: Date.now(), name: rand.name, value: rand.value });
+inventory.push({ id: Date.now() + Math.random(), name: rand.name, value: rand.value });
 btn.style.display = 'block';
 tg.sendData(JSON.stringify({action: "open_case", type: currentCase, item: rand.name, val: rand.value, new_balance: balance}));
 }, 4100);
@@ -246,4 +242,3 @@ updateUpgradeChance();
 tg.sendData(JSON.stringify({action: "upgrade", success: success, target_item: selectedTargetItem.name, target_val: selectedTargetItem.value, res_balance: balance}));
 }, 3100);
 }
-          
