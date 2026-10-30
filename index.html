@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brainrot Loot Ultimate</title>
+    <title>Brainrot Loot Server Connected</title>
     <script src="https://telegram.org"></script>
     <style>
         body { background-color: #121214; color: #ffffff; font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; text-align: center; user-select: none; }
@@ -33,7 +34,6 @@
         .inv-price { color: #ff9f43; font-weight: bold; font-size: 13px; margin-bottom: 8px; }
         .inv-buttons { display: flex; gap: 5px; }
         .btn-sell { flex: 1; background: #10ac84; color: white; border: none; padding: 6px; font-size: 12px; font-weight: bold; border-radius: 5px; cursor: pointer; }
-        .btn-withdraw { flex: 1; background: #2e2e38; color: #b2bec3; border: 1px solid #3f3f4e; padding: 6px; font-size: 12px; font-weight: bold; border-radius: 5px; cursor: pointer; }
         .upg-split { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; }
         .upg-slot { flex: 1; background: #1e1e24; border: 2px dashed #3f3f4e; border-radius: 12px; padding: 10px; min-height: 90px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; }
         .upg-slot.active { border-style: solid; border-color: #ff9f43; }
@@ -55,7 +55,7 @@
 </head>
 <body>
     <div class="header-panel">
-        <div class="logo">💥 BRAINROT LOOT v2</div>
+        <div class="logo">💥 BRAINROT LOOT Server Mode</div>
         <div class="balance-box">💰 <span id="user-balance">1000</span> B</div>
     </div>
 
@@ -65,7 +65,6 @@
         <div class="tab" id="tab-inventory" onclick="switchTab('inventory')">🎒 Інвентар</div>
     </div>
 
-    <!-- СПИСОК КЕЙСІВ -->
     <div id="page-cases" class="page active">
         <div class="case-card" onclick="openCaseScreen('dragon')"><div class="case-title">🐉 Dragon Case</div><div class="case-price">500 B</div></div>
         <div class="case-card" onclick="openCaseScreen('tako')"><div class="case-title">🌮 Tako Case</div><div class="case-price">209 B</div></div>
@@ -74,13 +73,12 @@
         <div class="case-card" onclick="openCaseScreen('cerberus')"><div class="case-title">🐕 Cerberus Case</div><div class="case-price">137 B</div></div>
     </div>
 
-    <!-- ЕКРАН ВНУТРІШНЬОГО КЕЙСУ (LOOT) -->
     <div id="page-single-case" class="page">
         <button class="back-btn" onclick="backToMenu()">⬅️ Назад</button>
         <div style="clear: both;"></div>
         <h3 id="single-case-title" style="margin: 5px 0; color: #ff9f43;">CASE</h3>
         <div class="loot-box"><div class="loot-title">📋 ДОСТУПНИЙ LOOT:</div><div id="loot-list-content"></div></div>
-        <button class="btn-action" id="btn-open-case" onclick="spinRoulette()">🎰 ВІДКРИТИ КЕЙС</button>
+        <button class="btn-action" id="btn-open-case" onclick="requestCaseSpin()">🎰 ВІДКРИТИ КЕЙС</button>
         <div class="roulette-container" id="roulette-block"><div class="marker"></div><div class="roulette-tape" id="tape"></div></div>
         <div class="result-text" id="case-result"></div>
     </div>
@@ -94,190 +92,316 @@
         </div>
         <div class="wheel-container"><svg class="wheel-svg" viewBox="0 0 220 220"><circle class="wheel-bg" cx="110" cy="110" r="100"></circle><circle class="wheel-zone" id="wheel-sector" cx="110" cy="110" r="100"></circle></svg><div class="arrow" id="arrow"></div></div>
         <div style="font-size: 15px; font-weight: bold; margin-bottom: 10px;">📊 Розрахований Шанс: <span id="upgrade-chance-text" style="color:#ff9f43;">0%</span></div>
-        <button class="btn-action" id="btn-start-upgrade" onclick="startUpgrade()" style="background:#3f3f4e; color:#b2bec3;" disabled>🔮 ЗАПУСТИТИ АПГРЕЙД</button>
+        <button class="btn-action" id="btn-start-upgrade" onclick="requestUpgradeSpin()" style="background:#3f3f4e; color:#b2bec3 survive;" disabled>🔮 ЗАПУСТИТИ АПГРЕЙД</button>
         <div class="result-text" id="upgrade-result"></div>
     </div>
 
-    <div class="modal" id="modal-my-items">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div>🎒 Твій інвентар:</div>
-                <div class="close-modal" onclick="closeModal('my-items')">×</div>
+    <div class="modal" id="modal-my-items"><div class="modal-content"><div class="modal-header"><div>🎒 Твій інвентар:</div><div class="close-modal" onclick="closeModal('my-items')">×</div></div><div id="modal-my-list"></div></div></div>
+
+let tg = null;
+
+if (window.Telegram && window.Telegram.WebApp) {
+    tg = window.Telegram.WebApp;
+    tg.expand();
+}
+
+const urlParams = new URLSearchParams(window.location.search);
+
+let balance = parseInt(urlParams.get('balance')) || 1000;
+let rawInv = urlParams.get('inventory');
+let inventory = [];
+
+try {
+    if (rawInv) {
+        inventory = JSON.parse(decodeURIComponent(rawInv));
+    }
+} catch (e) {}
+
+// Завантажуємо кут колеса
+let totalUpgradeRotation = parseInt(urlParams.get('wheel_rot')) || 0;
+
+document.getElementById('user-balance').innerText = balance;
+
+if (totalUpgradeRotation > 0) {
+    document.getElementById('arrow').style.transform =
+        `translate(-50%, -100%) rotate(${totalUpgradeRotation}deg)`;
+}
+
+const GAME_LOOT = {
+    "dragon": [
+        { name: "Elephant Frigo [⚙️ DEFAULT]", value: 8850 },
+        { name: "Los Dragons [⚙️ DEFAULT]", value: 4638 },
+        { name: "Kraken [⚙️ DEFAULT]", value: 2190 },
+        { name: "Tirilikalika [⚙️ DEFAULT]", value: 1012 },
+        { name: "Capitano Americano [⚙️ DEFAULT]", value: 506 },
+        { name: "Rubiko and Kubiko [⚙️ DEFAULT]", value: 372 }
+    ],
+
+    "tako": [
+        { name: "Griffin [⚙️ DEFAULT]", value: 4217 },
+        { name: "La Casa Boo [⚙️ DEFAULT]", value: 551 },
+        { name: "Spooky and Pumpky [⚙️ DEFAULT]", value: 151 },
+        { name: "Cerberus [⚙️ DEFAULT]", value: 135 }
+    ],
+
+    "mobile": [
+        { name: "Venuspino [⚙️ DEFAULT]", value: 500 },
+        { name: "La Food Combinasion [⚙️ DEFAULT]", value: 140 },
+        { name: "Ketchuru and Musturu [⚙️ DEFAULT]", value: 20 },
+        { name: "Ketupat Kepat [⚙️ DEFAULT]", value: 22 }
+    ],
+
+    "lucky": [
+        { name: "Orchidox [⚙️ DEFAULT]", value: 15127 },
+        { name: "Kraken [⚙️ DEFAULT]", value: 2030 },
+        { name: "Hydra Bunny [⚙️ DEFAULT]", value: 1722 }
+    ],
+
+    "cerberus": [
+        { name: "Hydra Bunny [⚙️ DEFAULT]", value: 3265 },
+        { name: "Cerberus [⚙️ DEFAULT]", value: 467 },
+        { name: "Burguro And Fryuro [⚙️ DEFAULT]", value: 196 }
+    ]
+};
+
+const CASE_PRICES = {
+    "dragon": 500,
+    "tako": 209,
+    "mobile": 19,
+    "lucky": 259,
+    "cerberus": 137
+};
+
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => {
+        t.classList.remove('active');
+    });
+
+    document.querySelectorAll('.page').forEach(p => {
+        p.classList.remove('active');
+    });
+
+    document.getElementById('tab-' + name).classList.add('active');
+    document.getElementById('page-' + name).classList.add('active');
+
+    if (name === 'inventory') {
+        renderInventory();
+    }
+}
+
+function openCaseScreen(type) {
+    currentCase = type;
+
+    document.getElementById('page-cases').classList.remove('active');
+    document.getElementById('page-single-case').classList.add('active');
+
+    document.getElementById('single-case-title').innerText =
+        type.toUpperCase() + " CASE";
+
+    document.getElementById('roulette-block').style.display = 'none';
+    document.getElementById('case-result').innerText = '';
+    document.getElementById('btn-open-case').style.display = 'block';
+
+    const list = document.getElementById('loot-list-content');
+    list.innerHTML = '';
+
+    GAME_LOOT[type].forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'loot-item-text';
+
+        div.innerHTML = `
+            <span>• ${item.name}</span>
+            <span style="color:#ff9f43;font-weight:bold;">
+                ${item.value} B
+            </span>
+        `;
+
+        list.appendChild(div);
+    });
+}
+
+function backToMenu() {
+    document.getElementById('page-single-case').classList.remove('active');
+    document.getElementById('page-cases').classList.add('active');
+}
+
+
+function requestCaseSpin() {
+    const price = CASE_PRICES[currentCase];
+
+    if (balance < price) {
+        alert("Недостатньо B монет!");
+        return;
+    }
+
+    document.getElementById('btn-open-case').style.display = 'none';
+
+    if (tg) {
+        tg.sendData(JSON.stringify({
+            action: "server_spin_case",
+            case: currentCase
+        }));
+
+        document.getElementById('case-result').innerText =
+            "Сервер прораховує приз... Закрий вікно і відкрий знову!";
+    } else {
+        alert("Відкрий через Telegram для зв'язку з Пайтоном!");
+    }
+}
+
+function renderInventory() {
+    const grid = document.getElementById('inventory-grid-content');
+    grid.innerHTML = '';
+
+    if (inventory.length === 0) {
+        grid.innerHTML = 'Твій інвентар порожній.';
+        return;
+    }
+
+    inventory.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'inv-card';
+
+        card.innerHTML = `
+            <div class="inv-name">${item.name}</div>
+            <div class="inv-price">💰 ${item.value} B</div>
+            <div class="inv-buttons">
+                <button class="btn-sell"
+                    onclick="sellItem(${item.id}, ${item.value})">
+                    Продати
+                </button>
             </div>
-            <div id="modal-my-list"></div>
-        </div>
-    </div>
+        `;
 
-    <div class="modal" id="modal-all-items">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div>🎯 Оберіть ціль:</div>
-                <div class="close-modal" onclick="closeModal('all-items')">×</div>
-            </div>
-            <div id="modal-all-list"></div>
-        </div>
-    </div>
+        grid.appendChild(card);
+    });
+}
 
-    <script>
-        let tg = null;
-        if (window.Telegram && window.Telegram.WebApp) {
-            tg = window.Telegram.WebApp;
-            tg.expand();
-        }
+function sellItem(id, value) {
+    if (tg) {
+        tg.sendData(JSON.stringify({
+            action: "server_sell_item",
+            item_id: id
+        }));
+    }
+}
 
-        const urlParams = new URLSearchParams(window.location.search);
-        let balance = parseInt(urlParams.get('balance')) || 1000;
-        let rawInv = urlParams.get('inventory');
-        let inventory = [];
-        try { if(rawInv) inventory = JSON.parse(decodeURIComponent(rawInv)); } catch(e){}
+function openModal(type) {
+    document.getElementById('modal-' + type).style.display = 'block';
 
-        document.getElementById('user-balance').innerText = balance;
+    if (type === 'my-items') {
+        const list = document.getElementById('modal-my-list');
+        list.innerHTML = '';
 
-        const GAME_LOOT = {
-            "dragon": [{name: "Elephant Frigo [⚙️ DEFAULT]", value: 8850, chance: 0.5},{name: "Los Dragons [⚙️ DEFAULT]", value: 4638, chance: 2.0},{name: "Kraken [⚙️ DEFAULT]", value: 2190, chance: 4.5},{name: "Tirilikalika [⚙️ DEFAULT]", value: 1012, chance: 13.0},{name: "Capitano Americano [⚙️ DEFAULT]", value: 506, chance: 30.0},{name: "Rubiko and Kubiko [⚙️ DEFAULT]", value: 372, chance: 50.0}],
-            "tako": [{name: "Griffin [⚙️ DEFAULT]", value: 4217, chance: 0.5},{name: "La Casa Boo [⚙️ DEFAULT]", value: 551, chance: 4.5},{name: "Spooky and Pumpky [⚙️ DEFAULT]", value: 151, chance: 15.0},{name: "Cerberus [⚙️ DEFAULT]", value: 135, chance: 20.0},{name: "Chillin Chili [⚙️ DEFAULT]", value: 122, chance: 25.0},{name: "Frama [⚙️ DEFAULT]", value: 118, chance: 35.0}],
-            "mobile": [{name: "Venuspino [⚙️ DEFAULT]", value: 500, chance: 5.0},{name: "La Food Combinasion [⚙️ DEFAULT]", value: 140, chance: 15.0},{name: "Ketchuru and Musturu [⚙️ DEFAULT]", value: 20, chance: 25.0},{name: "Ketupat Kepat [⚙️ DEFAULT]", value: 22, chance: 20.0},{name: "67 [⚙️ DEFAULT]", value: 12, chance: 35.0}],
-            "lucky": [{name: "Orchidox [⚙️ DEFAULT]", value: 15127, chance: 0.01},{name: "Kraken [⚙️ DEFAULT]", value: 2030, chance: 0.5},{name: "Hydra Bunny [⚙️ DEFAULT]", value: 1722, chance: 1.0},{name: "Reinito Sleighito [⚙️ DEFAULT]", value: 716, chance: 3.0},{name: "La Casa Boo [⚙️ DEFAULT]", value: 551, chance: 5.0},{name: "Rosey and Teddy [⚙️ DEFAULT]", value: 525, chance: 6.0},{name: "Celestial Pegasus [⚙️ DEFAULT]", value: 418, chance: 7.0},{name: "Los Sekolahs [⚙️ DEFAULT]", value: 325, chance: 9.0},{name: "Cooki and Milki [⚙️ DEFAULT]", value: 293, chance: 12.0},{name: "Fortunu and Cashuru [⚙️ DEFAULT]", value: 230, chance: 15.0},{name: "La Food Combinasion [⚙️ DEFAULT]", value: 103, chance: 20.0}],
-            "cerberus": [{name: "Hydra Bunny [⚙️ DEFAULT]", value: 3265, chance: 0.5},{name: "Cerberus [⚙️ DEFAULT]", value: 467, chance: 4.0},{name: "Burguro And Fryuro [⚙️ DEFAULT]", value: 196, chance: 8.0},{name: "Capitano Moby [⚙️ DEFAULT]", value: 127, chance: 12.0},{name: "Cash or Card [DEFAULT]", value: 116, chance: 14.0},{name: "Garama and Madundung [DEFAULT]", value: 106, chance: 15.0},{name: "Los Primos [DEFAULT]", value: 101, chance: 16.0},{name: "La Secret Combinasion [DEFAULT]", value: 90, chance: 18.0},{name: "Popcuru and Fizzuru [DEFAULT]", value: 87, chance: 19.0},{name: "Eviledon [DEFAULT]", value: 71, chance: 19.9},{name: "Ketchuru and Musturu [DEFAULT]", value: 54, chance: 20.0}]
-        };
-        const CASE_PRICES = { "dragon": 500, "tako": 209, "mobile": 19, "lucky": 259, "cerberus": 137 };
+        inventory.forEach(item => {
+            const d = document.createElement('div');
+            d.className = 'select-list-item';
 
-        function switchTab(name) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById('tab-' + name).classList.add('active');
-            document.getElementById('page-' + name).classList.add('active');
-            if(name === 'inventory') renderInventory();
-        }
+            d.innerHTML = `
+                <span>${item.name}</span>
+                <span style="color:#ff9f43;">${item.value} B</span>
+            `;
 
-        function openCaseScreen(type) {
-            currentCase = type;
-            document.getElementById('page-cases').classList.remove('active');
-            document.getElementById('page-single-case').classList.add('active');
-            document.getElementById('single-case-title').innerText = type.toUpperCase() + " CASE";
-            document.getElementById('roulette-block').style.display = 'none';
-            document.getElementById('case-result').innerText = '';
-            document.getElementById('btn-open-case').style.display = 'block';
-            const list = document.getElementById('loot-list-content'); list.innerHTML = '';
-            GAME_LOOT[type].forEach(item => {
-                const div = document.createElement('div'); div.className = 'loot-item-text';
-                div.innerHTML = `<span>• ${item.name}</span> <span style="color:#ff9f43;font-weight:bold;">${item.value} B</span>`;
-                list.appendChild(div);
-            });
-        }
+            d.onclick = () => {
+                selectItem('my', item);
+                closeModal('my-items');
+            };
 
-        function backToMenu() {
-            document.getElementById('page-single-case').classList.remove('active');
-            document.getElementById('page-cases').classList.add('active');
-        }
+            list.appendChild(d);
+        });
+    } else {
+        const list = document.getElementById('modal-all-list');
+        list.innerHTML = '';
 
-        function spinRoulette() {
-            const price = CASE_PRICES[currentCase];
-            if(balance < price) { alert("Недостатньо B монет!"); return; }
-            balance -= price; document.getElementById('user-balance').innerText = balance;
-            const tape = document.getElementById('tape'); const block = document.getElementById('roulette-block');
-            const resultText = document.getElementById('case-result'); const btn = document.getElementById('btn-open-case');
-            btn.style.display = 'none'; block.style.display = 'block'; resultText.innerText = 'Рулетка крутиться... 🎰';
-            tape.style.transition = 'none'; tape.style.transform = 'translateX(0px)'; tape.innerHTML = '';
-            
-            const pool = GAME_LOOT[currentCase];
-            for(let i = 0; i < 45; i++) {
-                const item = document.createElement('div'); item.className = 'roulette-item';
-                item.innerText = pool[i % pool.length].name; tape.appendChild(item);
-            }
-            
-            let rand = pool[Math.floor(Math.random() * pool.length)];
-            
-            setTimeout(() => {
-                tape.style.transition = 'transform 4s cubic-bezier(0.1, 0.8, 0.1, 1)'; 
-                tape.style.transform = 'translateX(-3300px)'; 
-            }, 50);
-            
-            setTimeout(() => {
-                resultText.innerHTML = `🎉 Випав: <span style="color:#ff9f43;">${rand.name}</span>`;
-                inventory.push({ id: Date.now() + Math.random(), name: rand.name, value: rand.value });
-                btn.style.display = 'block';
-                if(tg) tg.sendData(JSON.stringify({action: "open_case", type: currentCase, item: rand.name, val: rand.value, new_balance: balance}));
-            }, 4100);
-        }
+        let added = new Set();
 
-        function renderInventory() {
-            const grid = document.getElementById('inventory-grid-content'); grid.innerHTML = '';
-            if(inventory.length === 0) { grid.innerHTML = '<div style="grid-column:1/3;color:#b2bec3;padding:20px;">Твій інвентар порожній.</div>'; return; }
-            inventory.forEach(item => {
-                const card = document.createElement('div'); card.className = 'inv-card';
-                card.innerHTML = `<div class="inv-name">${item.name}</div><div class="inv-price">💰 ${item.value} B</div><div class="inv-buttons"><button class="btn-sell" onclick="sellItem(${item.id}, ${item.value})">Продати</button><button class="btn-withdraw" onclick="alert('Виведення буде пізніше!')">Вивести</button></div>`;
-                grid.appendChild(card);
-            });
-        }
+        Object.values(GAME_LOOT).flat().forEach(item => {
+            if (added.has(item.name)) return;
 
-        function sellItem(id, value) {
-            inventory = inventory.filter(i => i.id !== id); balance += value;
-            document.getElementById('user-balance').innerText = balance; renderInventory();
-            if(tg) tg.sendData(JSON.stringify({action: "sell_item", item_id: id, add_val: value, new_balance: balance}));
-        }
+            added.add(item.name);
 
-        function openModal(type) {
-            document.getElementById('modal-' + type).style.display = 'block';
-            if(type === 'my-items') {
-                const list = document.getElementById('modal-my-list'); list.innerHTML = '';
-                inventory.forEach(item => {
-                    const d = document.createElement('div'); d.className = 'select-list-item';
-                    d.innerHTML = `<span>${item.name}</span> <span style="color:#ff9f43;">${item.value} B</span>`;
-                    d.onclick = () => { selectItem('my', item); closeModal('my-items'); }; list.appendChild(d);
-                });
-            } else {
-                const list = document.getElementById('modal-all-list'); list.innerHTML = '';
-                let added = new Set();
-                Object.values(GAME_LOOT).flat().forEach(item => {
-                    if(added.has(item.name)) return; added.add(item.name);
-                    const d = document.createElement('div'); d.className = 'select-list-item';
-                    d.innerHTML = `<span>${item.name}</span> <span style="color:#ff9f43;">${item.value} B</span>`;
-                    d.onclick = () => { selectItem('target', item); closeModal('all-items'); }; list.appendChild(d);
-                });
-            }
-        }
-        function closeModal(type) { document.getElementById('modal-' + type).style.display = 'none'; }
+            const d = document.createElement('div');
+            d.className = 'select-list-item';
 
-        function selectItem(slot, item) {
-            if(slot === 'my') {
-            selectedMyItem = item; document.getElementById('slot-my-name').innerText = item.name;
-                document.getElementById('slot-my-price').innerText = item.value + " B"; document.getElementById('slot-my-item').classList.add('active');
-            } else {
-                selectedTargetItem = item; document.getElementById('slot-target-name').innerText = item.name;
-                document.getElementById('slot-target-price').innerText = item.value + " B"; document.getElementById('slot-target-item').classList.add('active');
-            }
-            updateUpgradeChance();
-        }
+            d.innerHTML = `
+                <span>${item.name}</span>
+                <span style="color:#ff9f43;">${item.value} B</span>
+            `;
 
-        function updateUpgradeChance() {
-            const text = document.getElementById('upgrade-chance-text'); const sector = document.getElementById('wheel-sector'); const btn = document.getElementById('btn-start-upgrade');
-            if(!selectedMyItem || !selectedTargetItem) { text.innerText = "0%"; sector.style.strokeDasharray = `0 628`; btn.disabled = true; btn.style.background = '#3f3f4e'; return; }
-            calculatedChance = selectedTargetItem.value <= selectedMyItem.value ? 100 : (selectedMyItem.value / selectedTargetItem.value) * 100;
-            calculatedChance = Math.max(0.01, Math.min(100, Math.round(calculatedChance * 100) / 100));
-            text.innerText = calculatedChance + "%"; sector.style.strokeDasharray = `${(calculatedChance / 100) * 628} 628`;
-            btn.disabled = false; btn.style.background = '#ff9f43'; btn.style.color = '#121214';
-        }
+            d.onclick = () => {
+                selectItem('target', item);
+                closeModal('all-items');
+            };
 
-        function startUpgrade() {
-            const arrow = document.getElementById('arrow'); const resultText = document.getElementById('upgrade-result');
-            document.getElementById('btn-start-upgrade').disabled = true; resultText.innerText = 'Колесо обертається... 🌀';
-            const randomRotation = 1800 + Math.floor(Math.random() * 360);
-            arrow.style.transition = 'transform 3s cubic-bezier(0.1, 0.8, 0.1, 1)'; arrow.style.transform = `translate(-50%, -100%) rotate(${randomRotation}deg)`;
-            setTimeout(() => {
-                const finalAngle = randomRotation % 360; const targetMaxAngle = (calculatedChance / 100) * 360;
-                let success = finalAngle <= targetMaxAngle;
-                inventory = inventory.filter(i => i.id !== selectedMyItem.id);
-                if (success) {
-                    resultText.style.color = '#10ac84'; resultText.innerText = `🎉 УСПІХ!`;
-                    inventory.push({ id: Date.now(), name: selectedTargetItem.name, value: selectedTargetItem.value });
-                } else { resultText.style.color = '#ff4757'; resultText.innerText = `💥 НАВДАЧА!`; }
-                selectedMyItem = null; document.getElementById('slot-my-name').innerText = "Натисни щоб вибрати";
-                document.getElementById('slot-my-price').innerText = ""; document.getElementById('slot-my-item').classList.remove('active');
-                updateUpgradeChance();
-                if(tg) tg.sendData(JSON.stringify({action: "upgrade", success: success, target_item: selectedTargetItem.name, target_val: selectedTargetItem.value, res_balance: balance}));
-            }, 3100);
-        }
-    </script>
-</body>
-</html>
+            list.appendChild(d);
+        });
+    }
+}
+
+function closeModal(type) {
+    document.getElementById('modal-' + type).style.display = 'none';
+}
+
+function selectItem(slot, item) {
+    if (slot === 'my') {
+        selectedMyItem = item;
+
+        document.getElementById('slot-my-name').innerText = item.name;
+        document.getElementById('slot-my-price').innerText = item.value + " B";
+        document.getElementById('slot-my-item').classList.add('active');
+    } else {
+        selectedTargetItem = item;
+
+        document.getElementById('slot-target-name').innerText = item.name;
+        document.getElementById('slot-target-price').innerText = item.value + " B";
+        document.getElementById('slot-target-item').classList.add('active');
+    }
+
+    updateUpgradeChance();
+}
+
+function updateUpgradeChance() {
+    const text = document.getElementById('upgrade-chance-text');
+    const sector = document.getElementById('wheel-sector');
+    const btn = document.getElementById('btn-start-upgrade');
+
+    if (!selectedMyItem || !selectedTargetItem) {
+        text.innerText = "0%";
+        sector.style.strokeDasharray = `0 628`;
+        btn.disabled = true;
+        return;
+    }
+
+    calculatedChance = selectedTargetItem.value <= selectedMyItem.value
+        ? 100
+        : (selectedMyItem.value / selectedTargetItem.value) * 100;
+
+    calculatedChance = Math.max(
+        0.01,
+        Math.min(100, Math.round(calculatedChance * 100) / 100)
+    );
+
+    text.innerText = calculatedChance + "%";
+
+    sector.style.strokeDasharray =
+        `${(calculatedChance / 100) * 628} 628`;
+
+    btn.disabled = false;
+    btn.style.background = '#ff9f43';
+    btn.style.color = '#121214';
+}
+
+function requestUpgradeSpin() {
+    if (tg) {
+        tg.sendData(JSON.stringify({
+            action: "server_upgrade",
+            my_id: selectedMyItem.id,
+            target_name: selectedTargetItem.name,
+            target_val: selectedTargetItem.value,
+            chance: calculatedChance
+        }));
+
+        document.getElementById('upgrade-result').innerText =
+            "Колесо прораховується на сервері...";
+    }
+}
